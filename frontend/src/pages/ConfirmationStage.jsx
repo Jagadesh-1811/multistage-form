@@ -57,7 +57,7 @@ const ConfirmationStage = () => {
 Application Date   : ${new Date(paymentDetails.dateTime).toLocaleString()}
 Transaction ID     : ${paymentDetails.transactionId}
 Payment Status     : ${paymentDetails.status}
-Total Amount Paid  : $${paymentDetails.amount.toFixed(2)} ${paymentDetails.currency}
+Total Amount Paid  : ₹${paymentDetails.amount.toFixed(2)} ${paymentDetails.currency}
 Payment Method     : ${paymentDetails.paymentMethod}
 ---------------------------------------------------
 PERSONAL INFORMATION
@@ -244,7 +244,7 @@ Thank you! Your registration has been submitted.
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
             <div>
               <span className="text-slate-400 block mb-0.5">Amount Paid</span>
-              <span className="font-semibold text-slate-700">${paymentDetails.amount.toFixed(2)}</span>
+              <span className="font-semibold text-slate-700">₹{paymentDetails.amount.toFixed(2)}</span>
             </div>
             <div>
               <span className="text-slate-400 block mb-0.5">Payment Status</span>

@@ -1,8 +1,13 @@
 import React from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useSession } from '../context/SessionContext';
 
 const StepProgress = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { session } = useSession();
+
+  const currentStage = session?.currentStage || 1;
 
   const getStepNumber = (pathname) => {
     if (pathname.includes('/register/personal')) return 1;
@@ -21,6 +26,16 @@ const StepProgress = () => {
     { id: 4, label: 'Confirmation' }
   ];
 
+  const handleStepClick = (stepId) => {
+    const paths = {
+      1: '/register/personal',
+      2: '/register/education',
+      3: '/register/payment',
+      4: '/register/confirmation'
+    };
+    navigate(paths[stepId]);
+  };
+
   return (
     <div className="w-full select-none">
       {/* Circles and Lines Row */}
@@ -28,11 +43,20 @@ const StepProgress = () => {
         {steps.map((step, idx) => {
           const isCompleted = currentStep > step.id;
           const isActive = currentStep === step.id;
+          const isClickable = step.id <= currentStage;
           
           return (
             <React.Fragment key={step.id}>
-              {/* Step Circle with Label (stacked or side-by-side depending on viewport) */}
-              <div className="flex items-center gap-2 z-10">
+              {/* Step Circle with Label (Clickable if unlocked) */}
+              <div 
+                onClick={() => isClickable && handleStepClick(step.id)}
+                className={`flex items-center gap-2 z-10 transition-all duration-200 ${
+                  isClickable 
+                    ? 'cursor-pointer hover:scale-105 active:scale-95 hover:opacity-90' 
+                    : 'cursor-not-allowed opacity-60'
+                }`}
+                title={isClickable ? `Go to ${step.label}` : 'Complete previous stages to unlock'}
+              >
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold border transition-all duration-300 ${
                   isCompleted 
                     ? 'bg-purple-600 border-purple-600 text-white shadow-md shadow-purple-200' 
@@ -66,7 +90,7 @@ const StepProgress = () => {
                       width: isCompleted 
                         ? '100%' 
                         : (currentStep - 1 === step.id) 
-                          ? '50%' // partial fill if next step is active (optional, looks great)
+                          ? '50%' 
                           : '0%' 
                     }}
                   />
