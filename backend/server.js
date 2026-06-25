@@ -17,6 +17,10 @@ app.use(express.urlencoded({ extended: false }));
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/payment', require('./routes/paymentRoutes'));
+app.use('/api/application', require('./routes/applicationRoutes'));
+
+// Serve uploaded files statically
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Base Route
 app.get('/', (req, res) => {

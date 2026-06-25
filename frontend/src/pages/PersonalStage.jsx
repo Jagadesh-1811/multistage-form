@@ -65,6 +65,8 @@ const PersonalStage = () => {
       // If the file is a new File object from the file input, append it
       if (data.govtId instanceof File) {
         formData.append('govtId', data.govtId);
+      } else if (!data.govtId) {
+        formData.append('govtIdDeleted', 'true');
       }
 
       const response = await axios.post('/api/application/stage1', formData, {
