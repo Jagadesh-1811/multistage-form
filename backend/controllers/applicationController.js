@@ -122,7 +122,9 @@ const saveStage2 = async (req, res) => {
     }
 
     progress.educationalDetails = educationalDetails;
-    progress.isComplete = true; // Mark completed as Stage 2 is the final stage
+    if (progress.currentStage === 2) {
+      progress.currentStage = 3;
+    }
 
     await progress.save();
     res.status(200).json({ success: true, data: progress });
