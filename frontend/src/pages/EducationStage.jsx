@@ -83,6 +83,8 @@ const EducationStage = () => {
       // If the file is a new File object, append it
       if (data.certificate instanceof File) {
         formData.append('certificate', data.certificate);
+      } else if (!data.certificate) {
+        formData.append('certificateDeleted', 'true');
       }
 
       const response = await axios.post('/api/application/stage2', formData, {
