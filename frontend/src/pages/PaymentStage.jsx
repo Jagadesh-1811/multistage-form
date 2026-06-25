@@ -1,26 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, CreditCard, Building2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Lock, CreditCard, Building2, CheckCircle2, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 
 import { useUI } from '../context/UIContext';
 import { useSession } from '../context/SessionContext';
 import { PaymentIllustration } from '../components/Illustrations';
 
-// Custom logos
-const VisaLogo = () => (
-  <span className="text-blue-800 font-extrabold italic text-sm tracking-wider select-none">VISA</span>
-);
-
-const MastercardLogo = () => (
-  <div className="flex -space-x-1.5 select-none">
-    <div className="w-4 h-4 rounded-full bg-rose-500 opacity-90"></div>
-    <div className="w-4 h-4 rounded-full bg-amber-500 opacity-90"></div>
-  </div>
-);
-
+// Styled Indian UPI Logo
 const UpiLogo = () => (
-  <span className="text-[10px] font-black tracking-tight text-slate-600 bg-slate-100 border border-slate-200 px-1 py-0.5 rounded select-none">UPI</span>
+  <span className="text-[10px] font-black tracking-tight text-purple-600 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-lg select-none">UPI</span>
 );
 
 const GpayLogo = () => (
@@ -40,122 +29,6 @@ const PaymentStage = () => {
   const { setIsLoading, showToast } = useUI();
   const { setSession } = useSession();
   const [paymentMethod, setPaymentMethod] = useState('card');
-  const [gpaySDKLoaded, setGpaySDKLoaded] = useState(false);
-
-  useEffect(() => {
-    // Dynamic load of pay.js
-    const script = document.createElement('script');
-    script.src = 'https://pay.google.com/gp/p/js/pay.js';
-    script.async = true;
-    script.onload = () => {
-      setGpaySDKLoaded(true);
-    };
-    script.onerror = () => {
-      console.warn('Failed to load Google Pay SDK. Google Pay will run in simulation mode.');
-    };
-    document.body.appendChild(script);
-    return () => {
-      // Safe check before removing
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
-  }, []);
-
-  const handleGooglePay = async () => {
-    try {
-      setIsLoading(true);
-
-      // Step 1: Initiate payment request on backend
-      const createResponse = await axios.post('/api/payment/create');
-      if (!createResponse.data || !createResponse.data.success) {
-        throw new Error('Payment creation failed');
-      }
-
-      if (window.google?.payments?.api?.PaymentsClient) {
-        const paymentsClient = new window.google.payments.api.PaymentsClient({ environment: 'TEST' });
-        const paymentDataRequest = {
-          apiVersion: 2,
-          apiVersionMinor: 0,
-          allowedPaymentMethods: [{
-            type: 'CARD',
-            parameters: {
-              allowedAuthMethods: ['PAN_ONLY', 'CRYPTOGRAM_3DS'],
-              allowedCardNetworks: ['AMEX', 'DISCOVER', 'JCB', 'MASTERCARD', 'VISA']
-            },
-            tokenizationSpecification: {
-              type: 'PAYMENT_GATEWAY',
-              parameters: {
-                'gateway': 'example',
-                'gatewayMerchantId': 'exampleGatewayMerchantId'
-              }
-            }
-          }],
-          transactionInfo: {
-            totalPriceStatus: 'FINAL',
-            totalPriceLabel: 'Total',
-            totalPrice: '110.00',
-            currencyCode: 'USD',
-            countryCode: 'US'
-          },
-          merchantInfo: {
-            merchantName: 'MERN MultiStage App'
-          }
-        };
-
-        try {
-          const paymentData = await paymentsClient.loadPaymentData(paymentDataRequest);
-          const txnId = paymentData.paymentMethodData?.tokenizationData?.token
-            ? 'GPAY-' + Math.random().toString(36).substring(2, 10).toUpperCase()
-            : 'GPAY-' + Math.random().toString(36).substring(2, 10).toUpperCase();
-
-          // Step 2: Confirm successful payment with backend
-          const successResponse = await axios.post('/api/payment/success', {
-            paymentMethod: 'Google Pay',
-            transactionId: txnId
-          });
-
-          if (successResponse.data && successResponse.data.success) {
-            const sessionResponse = await axios.get('/api/application/session');
-            if (sessionResponse.data && sessionResponse.data.success) {
-              setSession(sessionResponse.data.data);
-            }
-            showToast('Google Pay payment successful!', 'success');
-            navigate('/register/confirmation');
-          }
-          return;
-        } catch (err) {
-          if (err.statusCode === 'CANCELED') {
-            showToast('Google Pay payment was cancelled.', 'warning');
-            return;
-          }
-          console.warn('Google Pay chooser error, falling back to simulation...', err);
-        }
-      }
-
-      // Simulation mode fallback
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const successResponse = await axios.post('/api/payment/success', {
-        paymentMethod: 'Google Pay',
-        transactionId: 'GPAY-SIM-' + Math.random().toString(36).substring(2, 10).toUpperCase()
-      });
-
-      if (successResponse.data && successResponse.data.success) {
-        const sessionResponse = await axios.get('/api/application/session');
-        if (sessionResponse.data && sessionResponse.data.success) {
-          setSession(sessionResponse.data.data);
-        }
-        showToast('Google Pay payment successful (Simulated)!', 'success');
-        navigate('/register/confirmation');
-      }
-
-    } catch (error) {
-      console.error('Google Pay Flow Error:', error);
-      showToast('Google Pay payment failed. Please try again.', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handlePayment = async () => {
     if (paymentMethod === 'gpay') {
@@ -164,6 +37,7 @@ const PaymentStage = () => {
     }
 
     try {
+      setLoadingLocal(true);
       setIsLoading(true);
       
       // Step 1: Initiate payment request on backend
@@ -175,22 +49,20 @@ const PaymentStage = () => {
 
         // Map UI payment method key to human-readable label
         const methodLabels = {
-          card: 'Credit / Debit Card',
-          netbanking: 'Net Banking',
-          upi: 'UPI / Other'
+          gpay: 'Google Pay (UPI)',
+          upi_qr: 'UPI QR Code Scan',
+          upi_id: `UPI VPA (${upiId})`
         };
 
         // Step 2: Confirm successful payment with backend
         const successResponse = await axios.post('/api/payment/success', {
-          paymentMethod: methodLabels[paymentMethod]
+          paymentMethod: methodLabels[paymentMethod],
+          upiId: paymentMethod === 'upi_id' ? upiId : undefined
         });
 
         if (successResponse.data && successResponse.data.success) {
-          // Sync full session to capture updated step & payment details
-          const sessionResponse = await axios.get('/api/application/session');
-          if (sessionResponse.data && sessionResponse.data.success) {
-            setSession(sessionResponse.data.data);
-          }
+          // Sync current session directly with the returned form progress state
+          setSession(successResponse.data.data);
           
           showToast('Payment successful!', 'success');
           navigate('/register/confirmation');
@@ -201,6 +73,7 @@ const PaymentStage = () => {
       const errMsg = error.response?.data?.message || 'Payment simulation failed. Please try again.';
       showToast(errMsg, 'error');
     } finally {
+      setLoadingLocal(false);
       setIsLoading(false);
     }
   };
@@ -210,22 +83,22 @@ const PaymentStage = () => {
       {/* Header & Illustration */}
       <div className="text-center">
         <PaymentIllustration />
-        <h2 className="text-2xl font-bold text-slate-800 mt-4">Payment</h2>
-        <p className="text-sm text-slate-400 mt-1">Review and complete your payment</p>
+        <h2 className="text-2xl font-bold text-slate-800 mt-4">Payment Stage</h2>
+        <p className="text-sm text-slate-400 mt-1">Select your preferred UPI method to pay</p>
       </div>
 
-      {/* Application Fee Summary */}
+      {/* Application Fee Summary (INR / ₹) */}
       <div className="bg-purple-50/40 border border-purple-100 rounded-3xl p-5 flex flex-col gap-3">
         <h3 className="text-sm font-bold text-purple-900 text-left">Application Summary</h3>
         
         <div className="flex flex-col gap-2 text-sm text-slate-600">
           <div className="flex justify-between items-center">
             <span>Application Fee</span>
-            <span className="font-semibold text-slate-800">$100.00</span>
+            <span className="font-semibold text-slate-800">₹100.00</span>
           </div>
           <div className="flex justify-between items-center">
             <span>Processing Fee</span>
-            <span className="font-semibold text-slate-800">$10.00</span>
+            <span className="font-semibold text-slate-800">₹10.00</span>
           </div>
         </div>
 
@@ -234,18 +107,18 @@ const PaymentStage = () => {
 
         <div className="flex justify-between items-center text-base font-bold text-purple-900">
           <span>Total Amount</span>
-          <span className="text-lg">$110.00</span>
+          <span className="text-lg">₹110.00</span>
         </div>
       </div>
 
       {/* Choose Payment Method */}
       <div className="flex flex-col gap-3 text-left">
         <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wide">
-          Choose Payment Method
+          Choose UPI Option
         </h4>
 
         <div className="flex flex-col gap-2.5">
-          {/* Google Pay option */}
+          {/* Credit / Debit Card option */}
           <div 
             onClick={() => setPaymentMethod('gpay')}
             className={`border rounded-2xl p-4 flex items-center justify-between cursor-pointer transition-all duration-200 ${
@@ -261,79 +134,54 @@ const PaymentStage = () => {
                 {paymentMethod === 'gpay' && <div className="w-2.5 h-2.5 rounded-full bg-purple-600"></div>}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-slate-700">Google Pay</span>
+                <Smartphone className={`w-4 h-4 ${paymentMethod === 'gpay' ? 'text-purple-600' : 'text-slate-400'}`} />
+                <span className="text-sm font-semibold text-slate-700">Google Pay (GPay)</span>
               </div>
             </div>
-            <GpayLogo />
+            <UpiLogo />
           </div>
 
-          {/* Credit / Debit Card option */}
+          {/* UPI QR Code option */}
           <div 
-            onClick={() => setPaymentMethod('card')}
+            onClick={() => setPaymentMethod('upi_qr')}
             className={`border rounded-2xl p-4 flex items-center justify-between cursor-pointer transition-all duration-200 ${
-              paymentMethod === 'card' 
+              paymentMethod === 'upi_qr' 
                 ? 'border-purple-600 bg-purple-50/20' 
                 : 'border-slate-200 hover:bg-slate-50'
             }`}
           >
             <div className="flex items-center gap-3">
               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                paymentMethod === 'card' ? 'border-purple-600' : 'border-slate-300'
+                paymentMethod === 'upi_qr' ? 'border-purple-600' : 'border-slate-300'
               }`}>
-                {paymentMethod === 'card' && <div className="w-2.5 h-2.5 rounded-full bg-purple-600"></div>}
+                {paymentMethod === 'upi_qr' && <div className="w-2.5 h-2.5 rounded-full bg-purple-600"></div>}
               </div>
               <div className="flex items-center gap-2">
-                <CreditCard className={`w-4 h-4 ${paymentMethod === 'card' ? 'text-purple-600' : 'text-slate-400'}`} />
-                <span className="text-sm font-semibold text-slate-700">Credit / Debit Card</span>
+                <QrCode className={`w-4 h-4 ${paymentMethod === 'upi_qr' ? 'text-purple-600' : 'text-slate-400'}`} />
+                <span className="text-sm font-semibold text-slate-700">UPI QR Code</span>
               </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <VisaLogo />
-              <MastercardLogo />
-            </div>
+            <UpiLogo />
           </div>
 
-          {/* Net Banking option */}
+          {/* UPI ID option */}
           <div 
-            onClick={() => setPaymentMethod('netbanking')}
+            onClick={() => setPaymentMethod('upi_id')}
             className={`border rounded-2xl p-4 flex items-center justify-between cursor-pointer transition-all duration-200 ${
-              paymentMethod === 'netbanking' 
+              paymentMethod === 'upi_id' 
                 ? 'border-purple-600 bg-purple-50/20' 
                 : 'border-slate-200 hover:bg-slate-50'
             }`}
           >
             <div className="flex items-center gap-3">
               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                paymentMethod === 'netbanking' ? 'border-purple-600' : 'border-slate-300'
+                paymentMethod === 'upi_id' ? 'border-purple-600' : 'border-slate-300'
               }`}>
-                {paymentMethod === 'netbanking' && <div className="w-2.5 h-2.5 rounded-full bg-purple-600"></div>}
+                {paymentMethod === 'upi_id' && <div className="w-2.5 h-2.5 rounded-full bg-purple-600"></div>}
               </div>
               <div className="flex items-center gap-2">
-                <Building2 className={`w-4 h-4 ${paymentMethod === 'netbanking' ? 'text-purple-600' : 'text-slate-400'}`} />
-                <span className="text-sm font-semibold text-slate-700">Net Banking</span>
-              </div>
-            </div>
-            <Building2 className="w-4 h-4 text-slate-400" />
-          </div>
-
-          {/* UPI option */}
-          <div 
-            onClick={() => setPaymentMethod('upi')}
-            className={`border rounded-2xl p-4 flex items-center justify-between cursor-pointer transition-all duration-200 ${
-              paymentMethod === 'upi' 
-                ? 'border-purple-600 bg-purple-50/20' 
-                : 'border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                paymentMethod === 'upi' ? 'border-purple-600' : 'border-slate-300'
-              }`}>
-                {paymentMethod === 'upi' && <div className="w-2.5 h-2.5 rounded-full bg-purple-600"></div>}
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className={`w-4 h-4 ${paymentMethod === 'upi' ? 'text-purple-600' : 'text-slate-400'}`} />
-                <span className="text-sm font-semibold text-slate-700">UPI / Other</span>
+                <CheckCircle2 className={`w-4 h-4 ${paymentMethod === 'upi_id' ? 'text-purple-600' : 'text-slate-400'}`} />
+                <span className="text-sm font-semibold text-slate-700">UPI ID / VPA</span>
               </div>
             </div>
             <UpiLogo />
@@ -351,7 +199,7 @@ const PaymentStage = () => {
           <Lock className="w-4 h-4" />
           <span>Pay $110.00</span>
         </button>
-        <span className="text-xs text-slate-400">Secure payments powered by Google Pay & Stripe</span>
+        <span className="text-xs text-slate-400">Secure payments powered by Stripe</span>
       </div>
     </div>
   );
