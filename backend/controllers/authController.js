@@ -9,48 +9,45 @@ const generateToken = (id) => {
 };
 
 // @desc    Register a new user
-// @route   POST /api/auth/register
+// @route   POST /api/auth/signup
 // @access  Public
 const registerUser = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { name, email, password } = req.body;
 
     // Validate inputs
-    if (!username || !email || !password) {
-      return res.status(400).json({ message: 'Please enter all fields' });
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: 'Please enter all fields' });
     }
 
     // Check if user exists by email
     const emailExists = await User.findOne({ email });
     if (emailExists) {
-      return res.status(400).json({ message: 'Email already registered' });
-    }
-
-    // Check if user exists by username
-    const usernameExists = await User.findOne({ username });
-    if (usernameExists) {
-      return res.status(400).json({ message: 'Username is already taken' });
+      return res.status(400).json({ success: false, message: 'Email already registered' });
     }
 
     // Create user (pre-save hook will hash password)
     const user = await User.create({
-      username,
+      name,
       email,
       password,
     });
 
     if (user) {
       res.status(201).json({
-        _id: user._id,
-        username: user.username,
-        email: user.email,
+        success: true,
         token: generateToken(user._id),
+        user: {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+        }
       });
     } else {
-      res.status(400).json({ message: 'Invalid user data' });
+      res.status(400).json({ success: false, message: 'Invalid user data' });
     }
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -63,35 +60,52 @@ const loginUser = async (req, res) => {
 
     // Validate inputs
     if (!email || !password) {
-      return res.status(400).json({ message: 'Please enter all fields' });
+      return res.status(400).json({ success: false, message: 'Please enter all fields' });
     }
 
     // Check for user email
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ success: false, message: 'Invalid credentials' });
     }
 
     // Check if password matches
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ success: false, message: 'Invalid credentials' });
     }
 
     res.status(200).json({
-      _id: user._id,
-      username: user.username,
-      email: user.email,
+      success: true,
       token: generateToken(user._id),
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+      }
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-
+// @desc    Get user profile (Protected route test)
+// @route   GET /api/auth/me
+// @access  Private
+const getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    res.status(200).json({
+      success: true,
+      user
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 module.exports = {
   registerUser,
   loginUser,
+  getMe,
 };
