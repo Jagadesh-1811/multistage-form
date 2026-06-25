@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, CreditCard, Building2, CheckCircle2, ChevronRight } from 'lucide-react';
+import { Lock, CreditCard, Building2, CheckCircle2, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 
 import { useUI } from '../context/UIContext';
@@ -23,13 +23,146 @@ const UpiLogo = () => (
   <span className="text-[10px] font-black tracking-tight text-slate-600 bg-slate-100 border border-slate-200 px-1 py-0.5 rounded select-none">UPI</span>
 );
 
+const GpayLogo = () => (
+  <span className="text-sm font-bold text-slate-800 tracking-tight flex items-center select-none">
+    <span className="text-blue-600">G</span>
+    <span className="text-red-500">o</span>
+    <span className="text-yellow-500">o</span>
+    <span className="text-blue-600">g</span>
+    <span className="text-green-500">l</span>
+    <span className="text-red-500">e</span>
+    <span className="ml-1 text-slate-600 font-semibold">Pay</span>
+  </span>
+);
+
 const PaymentStage = () => {
   const navigate = useNavigate();
   const { setIsLoading, showToast } = useUI();
   const { setSession } = useSession();
   const [paymentMethod, setPaymentMethod] = useState('card');
+  const [gpaySDKLoaded, setGpaySDKLoaded] = useState(false);
+
+  useEffect(() => {
+    // Dynamic load of pay.js
+    const script = document.createElement('script');
+    script.src = 'https://pay.google.com/gp/p/js/pay.js';
+    script.async = true;
+    script.onload = () => {
+      setGpaySDKLoaded(true);
+    };
+    script.onerror = () => {
+      console.warn('Failed to load Google Pay SDK. Google Pay will run in simulation mode.');
+    };
+    document.body.appendChild(script);
+    return () => {
+      // Safe check before removing
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
+  const handleGooglePay = async () => {
+    try {
+      setIsLoading(true);
+
+      // Step 1: Initiate payment request on backend
+      const createResponse = await axios.post('/api/payment/create');
+      if (!createResponse.data || !createResponse.data.success) {
+        throw new Error('Payment creation failed');
+      }
+
+      if (window.google?.payments?.api?.PaymentsClient) {
+        const paymentsClient = new window.google.payments.api.PaymentsClient({ environment: 'TEST' });
+        const paymentDataRequest = {
+          apiVersion: 2,
+          apiVersionMinor: 0,
+          allowedPaymentMethods: [{
+            type: 'CARD',
+            parameters: {
+              allowedAuthMethods: ['PAN_ONLY', 'CRYPTOGRAM_3DS'],
+              allowedCardNetworks: ['AMEX', 'DISCOVER', 'JCB', 'MASTERCARD', 'VISA']
+            },
+            tokenizationSpecification: {
+              type: 'PAYMENT_GATEWAY',
+              parameters: {
+                'gateway': 'example',
+                'gatewayMerchantId': 'exampleGatewayMerchantId'
+              }
+            }
+          }],
+          transactionInfo: {
+            totalPriceStatus: 'FINAL',
+            totalPriceLabel: 'Total',
+            totalPrice: '110.00',
+            currencyCode: 'USD',
+            countryCode: 'US'
+          },
+          merchantInfo: {
+            merchantName: 'MERN MultiStage App'
+          }
+        };
+
+        try {
+          const paymentData = await paymentsClient.loadPaymentData(paymentDataRequest);
+          const txnId = paymentData.paymentMethodData?.tokenizationData?.token
+            ? 'GPAY-' + Math.random().toString(36).substring(2, 10).toUpperCase()
+            : 'GPAY-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+
+          // Step 2: Confirm successful payment with backend
+          const successResponse = await axios.post('/api/payment/success', {
+            paymentMethod: 'Google Pay',
+            transactionId: txnId
+          });
+
+          if (successResponse.data && successResponse.data.success) {
+            const sessionResponse = await axios.get('/api/application/session');
+            if (sessionResponse.data && sessionResponse.data.success) {
+              setSession(sessionResponse.data.data);
+            }
+            showToast('Google Pay payment successful!', 'success');
+            navigate('/register/confirmation');
+          }
+          return;
+        } catch (err) {
+          if (err.statusCode === 'CANCELED') {
+            showToast('Google Pay payment was cancelled.', 'warning');
+            return;
+          }
+          console.warn('Google Pay chooser error, falling back to simulation...', err);
+        }
+      }
+
+      // Simulation mode fallback
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      const successResponse = await axios.post('/api/payment/success', {
+        paymentMethod: 'Google Pay',
+        transactionId: 'GPAY-SIM-' + Math.random().toString(36).substring(2, 10).toUpperCase()
+      });
+
+      if (successResponse.data && successResponse.data.success) {
+        const sessionResponse = await axios.get('/api/application/session');
+        if (sessionResponse.data && sessionResponse.data.success) {
+          setSession(sessionResponse.data.data);
+        }
+        showToast('Google Pay payment successful (Simulated)!', 'success');
+        navigate('/register/confirmation');
+      }
+
+    } catch (error) {
+      console.error('Google Pay Flow Error:', error);
+      showToast('Google Pay payment failed. Please try again.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handlePayment = async () => {
+    if (paymentMethod === 'gpay') {
+      await handleGooglePay();
+      return;
+    }
+
     try {
       setIsLoading(true);
       
@@ -112,6 +245,28 @@ const PaymentStage = () => {
         </h4>
 
         <div className="flex flex-col gap-2.5">
+          {/* Google Pay option */}
+          <div 
+            onClick={() => setPaymentMethod('gpay')}
+            className={`border rounded-2xl p-4 flex items-center justify-between cursor-pointer transition-all duration-200 ${
+              paymentMethod === 'gpay' 
+                ? 'border-purple-600 bg-purple-50/20' 
+                : 'border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                paymentMethod === 'gpay' ? 'border-purple-600' : 'border-slate-300'
+              }`}>
+                {paymentMethod === 'gpay' && <div className="w-2.5 h-2.5 rounded-full bg-purple-600"></div>}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-slate-700">Google Pay</span>
+              </div>
+            </div>
+            <GpayLogo />
+          </div>
+
           {/* Credit / Debit Card option */}
           <div 
             onClick={() => setPaymentMethod('card')}
@@ -196,7 +351,7 @@ const PaymentStage = () => {
           <Lock className="w-4 h-4" />
           <span>Pay $110.00</span>
         </button>
-        <span className="text-xs text-slate-400">Secure payments powered by Stripe</span>
+        <span className="text-xs text-slate-400">Secure payments powered by Google Pay & Stripe</span>
       </div>
     </div>
   );

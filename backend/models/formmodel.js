@@ -41,6 +41,15 @@ const formProgressSchema = new mongoose.Schema({
             size: { type: Number }
         }
     },
+    // Stage 3: Payment Details
+    paymentDetails: {
+        amount: { type: Number },
+        currency: { type: String, default: 'USD' },
+        status: { type: String },
+        transactionId: { type: String },
+        paymentMethod: { type: String },
+        dateTime: { type: Date }
+    },
     // Flips to true when the user finishes all stages
     isComplete: { 
         type: Boolean, 

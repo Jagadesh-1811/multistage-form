@@ -10,7 +10,15 @@ const {
   resetSession,
 } = require('../controllers/applicationController');
 
+const fs = require('fs');
+
 const router = express.Router();
+
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 // Multer Storage Configuration
 const storage = multer.diskStorage({

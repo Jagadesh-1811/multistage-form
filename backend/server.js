@@ -17,6 +17,7 @@ app.use(express.urlencoded({ extended: false }));
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/application', require('./routes/applicationRoutes'));
+app.use('/api/payment', require('./routes/paymentRoutes'));
 
 // Serve uploaded files statically
 app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -28,7 +29,13 @@ app.get('/', (req, res) => {
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-  const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+  let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+  
+  // Return 400 Bad Request for file validation / Multer upload errors
+  if (err.name === 'MulterError' || err.message.includes('allowed') || err.message.includes('only')) {
+    statusCode = 400;
+  }
+
   res.status(statusCode).json({
     message: err.message,
     stack: process.env.NODE_ENV === 'production' ? null : err.stack,

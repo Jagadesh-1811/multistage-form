@@ -53,7 +53,13 @@ const saveStage1 = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Government ID document is required' });
     } else if (progress.personalInfo?.govtIdFile?.filename) {
       // Keep existing file if no new file is uploaded
-      personalInfo.govtIdFile = progress.personalInfo.govtIdFile;
+      const file = progress.personalInfo.govtIdFile;
+      personalInfo.govtIdFile = {
+        filename: file.filename,
+        originalName: file.originalName,
+        path: file.path,
+        size: file.size,
+      };
     } else {
       return res.status(400).json({ success: false, message: 'Government ID document is required' });
     }
@@ -104,7 +110,13 @@ const saveStage2 = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Educational certificate document is required' });
     } else if (progress.educationalDetails?.certificateFile?.filename) {
       // Keep existing file if no new file is uploaded
-      educationalDetails.certificateFile = progress.educationalDetails.certificateFile;
+      const file = progress.educationalDetails.certificateFile;
+      educationalDetails.certificateFile = {
+        filename: file.filename,
+        originalName: file.originalName,
+        path: file.path,
+        size: file.size,
+      };
     } else {
       return res.status(400).json({ success: false, message: 'Educational certificate document is required' });
     }
