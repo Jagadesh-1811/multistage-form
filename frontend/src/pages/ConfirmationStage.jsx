@@ -29,7 +29,7 @@ const ConfirmationStage = () => {
     };
 
     fetchSummary();
-  }, [setIsLoading, showToast]);
+  }, []);
 
   const handleFinish = async () => {
     // Reset backend and context session, then go back to page 1
