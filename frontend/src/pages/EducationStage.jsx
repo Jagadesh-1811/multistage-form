@@ -73,25 +73,55 @@ const EducationStage = () => {
     try {
       setIsLoading(true);
 
-      const formData = new FormData();
-      formData.append('qualification', data.qualification);
-      formData.append('institution', data.institution.trim());
-      formData.append('course', data.course.trim());
-      formData.append('year', data.year);
-      formData.append('grade', data.grade.trim());
+      let certificateFile = null;
 
-      // If the file is a new File object, append it
+      // If it is a new File object, upload to S3 first
       if (data.certificate instanceof File) {
-        formData.append('certificate', data.certificate);
-      } else if (!data.certificate) {
-        formData.append('certificateDeleted', 'true');
+        // 1. Request presigned URL from Express backend
+        const presignRes = await axios.post('/api/application/presign-upload', {
+          fileName: data.certificate.name,
+          fileType: data.certificate.type,
+          documentType: 'certificate'
+        });
+
+        if (presignRes.data && presignRes.data.success) {
+          const { presignedUrl, s3Key } = presignRes.data.data;
+
+          // 2. Upload file directly to AWS S3 using PUT (raw XHR to avoid axios preflight quirks)
+          await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', presignedUrl);
+            xhr.setRequestHeader('Content-Type', data.certificate.type);
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve();
+              } else {
+                reject(new Error(`S3 upload failed (${xhr.status}): ${xhr.responseText || xhr.statusText}`));
+              }
+            };
+            xhr.onerror = () => reject(new Error('Network error during S3 upload — check S3 bucket CORS configuration'));
+            xhr.send(data.certificate);
+          });
+
+          certificateFile = {
+            s3Key,
+            originalName: data.certificate.name,
+            size: data.certificate.size
+          };
+        }
       }
 
-      const response = await axios.post('/api/application/stage2', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      // 3. Submit data to backend as JSON
+      const payload = {
+        qualification: data.qualification,
+        institution: data.institution.trim(),
+        course: data.course.trim(),
+        year: data.year,
+        grade: data.grade.trim(),
+        certificateFile
+      };
+
+      const response = await axios.post('/api/application/stage2', payload);
 
       if (response.data && response.data.success) {
         setSession(response.data.data);
@@ -100,7 +130,7 @@ const EducationStage = () => {
       }
     } catch (error) {
       console.error('Error saving stage 2:', error);
-      const errMsg = error.response?.data?.message || 'Failed to save educational details. Please try again.';
+      const errMsg = error.response?.data?.message || error.message || 'Failed to save educational details. Please try again.';
       showToast(errMsg, 'error');
     } finally {
       setIsLoading(false);

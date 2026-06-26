@@ -21,9 +21,8 @@ const formProgressSchema = new mongoose.Schema({
         dob: { type: String },
         address: { type: String },
         govtIdFile: {
-            filename: { type: String },
+            s3Key: { type: String },
             originalName: { type: String },
-            path: { type: String },
             size: { type: Number }
         }
     },
@@ -35,9 +34,8 @@ const formProgressSchema = new mongoose.Schema({
         year: { type: String },
         grade: { type: String },
         certificateFile: {
-            filename: { type: String },
+            s3Key: { type: String },
             originalName: { type: String },
-            path: { type: String },
             size: { type: Number }
         }
     },

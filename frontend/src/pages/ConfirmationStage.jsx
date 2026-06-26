@@ -175,7 +175,7 @@ Thank you! Your registration has been submitted.
             <div className="sm:col-span-2">
               <span className="text-slate-400 block mb-1">ID Document</span>
               <a 
-                href={`/api${personalInfo.govtIdFile.path}`}
+                href={personalInfo.govtIdFile.viewUrl}
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-purple-50 hover:text-purple-700 border border-slate-100 rounded-lg text-slate-600 font-medium transition-colors"
@@ -222,7 +222,7 @@ Thank you! Your registration has been submitted.
             <div className="sm:col-span-2">
               <span className="text-slate-400 block mb-1">Certificate</span>
               <a 
-                href={`/api${educationalDetails.certificateFile.path}`}
+                href={educationalDetails.certificateFile.viewUrl}
                 target="_blank" 
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-purple-50 hover:text-purple-700 border border-slate-100 rounded-lg text-slate-600 font-medium transition-colors"

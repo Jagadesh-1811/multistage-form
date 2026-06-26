@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { useUI } from './UIContext';
+import { useAuth } from './AuthContext';
 
 const SessionContext = createContext(null);
 
@@ -13,6 +14,7 @@ export const SessionProvider = ({ children }) => {
   });
   const [loadingSession, setLoadingSession] = useState(true);
   const { showToast } = useUI();
+  const { user, loadingAuth } = useAuth();
 
   const fetchSession = async () => {
     try {
@@ -22,8 +24,11 @@ export const SessionProvider = ({ children }) => {
         setSession(response.data.data);
       }
     } catch (error) {
-      console.error('Error fetching session:', error);
-      showToast('Failed to load your registration session.', 'error');
+      // 401 is expected when the user is not authenticated — skip the toast.
+      if (error.response?.status !== 401) {
+        console.error('Error fetching session:', error);
+        showToast('Failed to load your registration session.', 'error');
+      }
     } finally {
       setLoadingSession(false);
     }
@@ -47,9 +52,16 @@ export const SessionProvider = ({ children }) => {
     }
   };
 
+  // Only fetch once we know the auth state, and only when authenticated.
   useEffect(() => {
-    fetchSession();
-  }, []);
+    if (loadingAuth) return;
+    if (user) {
+      fetchSession();
+    } else {
+      setLoadingSession(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingAuth, user]);
 
   return (
     <SessionContext.Provider value={{ session, setSession, loadingSession, fetchSession, resetSession }}>

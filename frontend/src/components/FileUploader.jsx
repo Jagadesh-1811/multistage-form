@@ -23,7 +23,7 @@ const FileUploader = ({
   // Determine if there is currently a selected file (either new or existing from session)
   const currentFile = fileValue instanceof File 
     ? { name: fileValue.name, size: fileValue.size, isNew: true } 
-    : (fileValue && existingFile ? { name: existingFile.originalName, size: existingFile.size, isNew: false, path: existingFile.path } : null);
+    : (fileValue && existingFile ? { name: existingFile.originalName, size: existingFile.size, isNew: false, s3Key: existingFile.s3Key } : null);
 
   const validateAndSetFile = (file) => {
     if (!file) return;

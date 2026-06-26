@@ -55,25 +55,55 @@ const PersonalStage = () => {
     try {
       setIsLoading(true);
       
-      const formData = new FormData();
-      formData.append('name', data.name.trim());
-      formData.append('dob', data.dob);
-      formData.append('email', data.email.trim().toLowerCase());
-      formData.append('phone', data.phone.trim());
-      formData.append('address', data.address.trim());
+      let govtIdFile = null;
 
-      // If the file is a new File object from the file input, append it
+      // If it is a new File object, upload to S3 first
       if (data.govtId instanceof File) {
-        formData.append('govtId', data.govtId);
-      } else if (!data.govtId) {
-        formData.append('govtIdDeleted', 'true');
+        // 1. Request presigned URL from Express backend
+        const presignRes = await axios.post('/api/application/presign-upload', {
+          fileName: data.govtId.name,
+          fileType: data.govtId.type,
+          documentType: 'govtId'
+        });
+
+        if (presignRes.data && presignRes.data.success) {
+          const { presignedUrl, s3Key } = presignRes.data.data;
+
+          // 2. Upload file directly to AWS S3 using PUT (raw XHR to avoid axios preflight quirks)
+          await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', presignedUrl);
+            xhr.setRequestHeader('Content-Type', data.govtId.type);
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve();
+              } else {
+                reject(new Error(`S3 upload failed (${xhr.status}): ${xhr.responseText || xhr.statusText}`));
+              }
+            };
+            xhr.onerror = () => reject(new Error('Network error during S3 upload — check S3 bucket CORS configuration'));
+            xhr.send(data.govtId);
+          });
+
+          govtIdFile = {
+            s3Key,
+            originalName: data.govtId.name,
+            size: data.govtId.size
+          };
+        }
       }
 
-      const response = await axios.post('/api/application/stage1', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      // 3. Submit data to backend as JSON
+      const payload = {
+        name: data.name.trim(),
+        dob: data.dob,
+        email: data.email.trim().toLowerCase(),
+        phone: data.phone.trim(),
+        address: data.address.trim(),
+        govtIdFile
+      };
+
+      const response = await axios.post('/api/application/stage1', payload);
 
       if (response.data && response.data.success) {
         setSession(response.data.data);
@@ -82,7 +112,7 @@ const PersonalStage = () => {
       }
     } catch (error) {
       console.error('Error saving stage 1:', error);
-      const errMsg = error.response?.data?.message || 'Failed to save personal details. Please try again.';
+      const errMsg = error.response?.data?.message || error.message || 'Failed to save personal details. Please try again.';
       showToast(errMsg, 'error');
     } finally {
       setIsLoading(false);
