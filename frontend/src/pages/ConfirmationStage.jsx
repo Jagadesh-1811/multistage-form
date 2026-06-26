@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download, CheckCircle2, ExternalLink, FileText, Mail, Phone, MapPin, User, GraduationCap, School, Award, Calendar, RotateCcw } from 'lucide-react';
 import axios from 'axios';
-import confetti from 'canvas-confetti';
-
 import { useUI } from '../context/UIContext';
 import { useSession } from '../context/SessionContext';
 import { ConfirmationIllustration } from '../components/Illustrations';
@@ -21,13 +19,6 @@ const ConfirmationStage = () => {
         const response = await axios.get('/api/application/summary');
         if (response.data && response.data.success) {
           setSummary(response.data.data);
-          
-          // Trigger confetti burst on success
-          confetti({
-            particleCount: 150,
-            spread: 80,
-            origin: { y: 0.6 }
-          });
         }
       } catch (error) {
         console.error('Error fetching summary:', error);

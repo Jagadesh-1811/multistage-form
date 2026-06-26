@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, CheckCircle2, QrCode, Smartphone, Loader2, ArrowRight } from 'lucide-react';
+import { Lock, CheckCircle2, QrCode, Smartphone, Loader2, ArrowRight, XCircle } from 'lucide-react';
 import axios from 'axios';
 
 import { useUI } from '../context/UIContext';
@@ -22,7 +22,7 @@ const PaymentStage = () => {
   const [upiId, setUpiId] = useState('');
   const [loadingLocal, setLoadingLocal] = useState(false);
 
-  const handlePayment = async () => {
+  const handlePayment = async (isSuccess = true) => {
     try {
       setLoadingLocal(true);
       setIsLoading(true);
@@ -41,18 +41,33 @@ const PaymentStage = () => {
           upi_id: `UPI VPA (${upiId})`
         };
 
-        // Step 2: Confirm successful payment with backend
-        const successResponse = await axios.post('/api/payment/success', {
-          paymentMethod: methodLabels[paymentMethod],
-          upiId: paymentMethod === 'upi_id' ? upiId : undefined
-        });
+        if (isSuccess) {
+          // Step 2: Confirm successful payment with backend
+          const successResponse = await axios.post('/api/payment/success', {
+            paymentMethod: methodLabels[paymentMethod],
+            upiId: paymentMethod === 'upi_id' ? upiId : undefined
+          });
 
-        if (successResponse.data && successResponse.data.success) {
-          // Sync current session directly with the returned form progress state
-          setSession(successResponse.data.data);
-          
-          showToast('Payment successful!', 'success');
-          navigate('/register/confirmation');
+          if (successResponse.data && successResponse.data.success) {
+            // Sync current session directly with the returned form progress state
+            setSession(successResponse.data.data);
+            
+            showToast('Payment successful!', 'success');
+            navigate('/register/confirmation');
+          }
+        } else {
+          // Step 2: Confirm failed payment with backend
+          const failureResponse = await axios.post('/api/payment/failure', {
+            paymentMethod: methodLabels[paymentMethod],
+            upiId: paymentMethod === 'upi_id' ? upiId : undefined
+          });
+
+          if (failureResponse.data && failureResponse.data.success) {
+            // Sync current session directly with the returned form progress state
+            setSession(failureResponse.data.data);
+            
+            showToast('Payment failed. Please try again.', 'error');
+          }
         }
       }
     } catch (error) {
@@ -182,29 +197,40 @@ const PaymentStage = () => {
         {paymentMethod === 'gpay' && (
           <div className="flex flex-col items-center gap-4 bg-slate-50 border border-slate-100 p-6 rounded-3xl animate-fade-in">
             <p className="text-xs text-slate-500 font-medium text-center">
-              Click below to pay securely via Google Pay UPI deep-link.
+              Choose an action below to simulate Google Pay UPI payment.
             </p>
-            <button
-              type="button"
-              onClick={handlePayment}
-              disabled={loadingLocal}
-              className="w-full max-w-xs py-3.5 bg-black hover:bg-zinc-900 disabled:bg-zinc-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md focus:outline-none focus:ring-4 focus:ring-zinc-200 group"
-            >
-              {loadingLocal ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <span>Pay with</span>
-                  <span className="tracking-tight text-white flex items-center gap-0.5">
-                    <span className="text-blue-400">G</span>
-                    <span className="text-red-400">P</span>
-                    <span className="text-yellow-400">a</span>
-                    <span className="text-green-400">y</span>
-                  </span>
-                  <ArrowRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-0.5" />
-                </>
-              )}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-md justify-center">
+              <button
+                type="button"
+                onClick={() => handlePayment(true)}
+                disabled={loadingLocal}
+                className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md focus:outline-none focus:ring-4 focus:ring-emerald-200 group"
+              >
+                {loadingLocal ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Confirm Payment</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePayment(false)}
+                disabled={loadingLocal}
+                className="flex-1 py-3.5 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-400 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md focus:outline-none focus:ring-4 focus:ring-rose-200 group"
+              >
+                {loadingLocal ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <XCircle className="w-4 h-4" />
+                    <span>Payment Failure</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
 
@@ -247,21 +273,38 @@ const PaymentStage = () => {
             <p className="text-xs font-semibold text-slate-500 text-center px-4">
               Scan this QR code using GPay, PhonePe, Paytm, or BHIM to pay ₹110.00
             </p>
-            <button
-              type="button"
-              onClick={handlePayment}
-              disabled={loadingLocal}
-              className="w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-2xl font-semibold shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
-            >
-              {loadingLocal ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <Lock className="w-4 h-4" />
-                  <span>Verify & Confirm Payment</span>
-                </>
-              )}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
+              <button
+                type="button"
+                onClick={() => handlePayment(true)}
+                disabled={loadingLocal}
+                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-2xl font-semibold shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                {loadingLocal ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Confirm Payment</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePayment(false)}
+                disabled={loadingLocal}
+                className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-400 text-white rounded-2xl font-semibold shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                {loadingLocal ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <XCircle className="w-4 h-4" />
+                    <span>Payment Failure</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
 
@@ -280,21 +323,38 @@ const PaymentStage = () => {
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-purple-100 focus:border-purple-500"
               />
             </div>
-            <button
-              type="button"
-              onClick={handlePayment}
-              disabled={loadingLocal || !upiId.includes('@')}
-              className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300 text-white rounded-2xl font-semibold shadow-lg shadow-purple-100 flex items-center justify-center gap-2 transition-all cursor-pointer"
-            >
-              {loadingLocal ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  <Lock className="w-4 h-4" />
-                  <span>Verify & Pay ₹110.00</span>
-                </>
-              )}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
+              <button
+                type="button"
+                onClick={() => handlePayment(true)}
+                disabled={loadingLocal || !upiId.includes('@')}
+                className="flex-1 py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white rounded-2xl font-semibold shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                {loadingLocal ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Confirm Payment</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePayment(false)}
+                disabled={loadingLocal || !upiId.includes('@')}
+                className="flex-1 py-3.5 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-300 text-white rounded-2xl font-semibold shadow-lg shadow-rose-100 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                {loadingLocal ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <XCircle className="w-4 h-4" />
+                    <span>Payment Failure</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
       </div>
