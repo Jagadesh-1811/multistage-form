@@ -63,4 +63,42 @@ router.post('/success', protect, async (req, res) => {
   }
 });
 
+// @desc    Handle failed payment
+// @route   POST /api/payment/failure
+// @access  Private
+router.post('/failure', protect, async (req, res) => {
+  try {
+    const { paymentMethod, transactionId } = req.body;
+    const progress = await FormProgress.findOne({ userId: req.user.id });
+
+    if (!progress) {
+      return res.status(400).json({ success: false, message: 'Application session not found' });
+    }
+
+    // Set payment details
+    progress.paymentDetails = {
+      amount: 110.00,
+      currency: 'INR',
+      status: 'Failed',
+      transactionId: transactionId || 'FAIL-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
+      paymentMethod: paymentMethod || 'Google Pay',
+      dateTime: new Date()
+    };
+
+    // Ensure application is not complete and remains in stage 3
+    progress.isComplete = false;
+    progress.currentStage = 3;
+
+    await progress.save();
+
+    res.status(200).json({
+      success: true,
+      data: progress,
+      message: 'Payment failure recorded successfully'
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;
