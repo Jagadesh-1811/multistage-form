@@ -1,6 +1,8 @@
 const express = require('express');
 const { protect } = require('../middleware/authMiddleware');
 const FormProgress = require('../models/formmodel');
+const supabase = require('../config/supabase');
+const User = require('../models/User');
 
 const router = express.Router();
 
@@ -52,6 +54,50 @@ router.post('/success', protect, async (req, res) => {
     progress.currentStage = 4;
 
     await progress.save();
+
+    // Store complete details in Supabase
+    try {
+      const user = await User.findById(req.user.id);
+      const email = user ? user.email : (progress.personalInfo?.email || '');
+      const name = user ? user.name : (progress.personalInfo?.name || '');
+
+      const { data, error } = await supabase
+        .from('applications')
+        .insert([
+          {
+            user_id: req.user.id.toString(),
+            name: name,
+            email: email,
+            phone: progress.personalInfo?.phone || '',
+            dob: progress.personalInfo?.dob || '',
+            address: progress.personalInfo?.address || '',
+            govt_id_filename: progress.personalInfo?.govtIdFile?.filename || '',
+            govt_id_path: progress.personalInfo?.govtIdFile?.path || '',
+            qualification: progress.educationalDetails?.qualification || '',
+            institution: progress.educationalDetails?.institution || '',
+            course: progress.educationalDetails?.course || '',
+            year: progress.educationalDetails?.year || '',
+            grade: progress.educationalDetails?.grade || '',
+            certificate_filename: progress.educationalDetails?.certificateFile?.filename || '',
+            certificate_path: progress.educationalDetails?.certificateFile?.path || '',
+            amount: progress.paymentDetails.amount,
+            currency: progress.paymentDetails.currency,
+            payment_status: progress.paymentDetails.status,
+            transaction_id: progress.paymentDetails.transactionId,
+            payment_method: progress.paymentDetails.paymentMethod,
+            payment_date_time: progress.paymentDetails.dateTime
+          }
+        ])
+        .select();
+
+      if (error) {
+        console.error('Error inserting complete details into Supabase (applications table):', error);
+      } else {
+        console.log('Successfully saved complete details to Supabase:', data);
+      }
+    } catch (supabaseErr) {
+      console.error('Failed to store complete details in Supabase:', supabaseErr);
+    }
 
     res.status(200).json({
       success: true,
