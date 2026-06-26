@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { GraduationCap, School, BookOpen, Calendar, Award, ArrowLeft, ArrowRight } from 'lucide-react';
+import { GraduationCap, School, BookOpen, Calendar, Award, ArrowLeft, ArrowRight, Save } from 'lucide-react';
 import axios from 'axios';
 
 import { useUI } from '../context/UIContext';
@@ -69,7 +69,7 @@ const EducationStage = () => {
     }
   }, [session, reset]);
 
-  const onSubmit = async (data) => {
+  const onSubmit = async (data, shouldNavigate = true) => {
     try {
       setIsLoading(true);
 
@@ -126,7 +126,9 @@ const EducationStage = () => {
       if (response.data && response.data.success) {
         setSession(response.data.data);
         showToast('Educational details saved successfully!', 'success');
-        navigate('/register/payment');
+        if (shouldNavigate) {
+          navigate('/register/payment');
+        }
       }
     } catch (error) {
       console.error('Error saving stage 2:', error);
@@ -319,7 +321,7 @@ const EducationStage = () => {
           })}
         />
 
-        {/* Action Buttons: Back and Next */}
+        {/* Action Buttons: Back, Save, and Next */}
         <div className="flex gap-4 mt-4">
           <button
             type="button"
@@ -328,6 +330,16 @@ const EducationStage = () => {
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSubmit((data) => onSubmit(data, false))}
+            disabled={isSubmitting}
+            className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-semibold shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer focus:outline-none focus:ring-4 focus:ring-slate-100"
+          >
+            <Save className="w-4 h-4" />
+            <span>Save</span>
           </button>
           
           <button

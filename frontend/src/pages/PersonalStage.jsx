@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { User, Calendar, Mail, Phone, MapPin, ArrowRight } from 'lucide-react';
+import { User, Calendar, Mail, Phone, MapPin, ArrowRight, Save } from 'lucide-react';
 import axios from 'axios';
 
 import { useUI } from '../context/UIContext';
@@ -51,7 +51,7 @@ const PersonalStage = () => {
     }
   }, [session, reset]);
 
-  const onSubmit = async (data) => {
+  const onSubmit = async (data, shouldNavigate = true) => {
     try {
       setIsLoading(true);
       
@@ -108,7 +108,9 @@ const PersonalStage = () => {
       if (response.data && response.data.success) {
         setSession(response.data.data);
         showToast('Personal information saved successfully!', 'success');
-        navigate('/register/education');
+        if (shouldNavigate) {
+          navigate('/register/education');
+        }
       }
     } catch (error) {
       console.error('Error saving stage 1:', error);
@@ -287,15 +289,27 @@ const PersonalStage = () => {
           })}
         />
 
-        {/* Action Button */}
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="mt-4 w-full py-3.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-2xl font-semibold shadow-lg shadow-purple-100 flex items-center justify-center gap-2 transition-all cursor-pointer group focus:outline-none focus:ring-4 focus:ring-purple-100"
-        >
-          <span>Next</span>
-          <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-        </button>
+        {/* Action Buttons */}
+        <div className="flex gap-4 mt-4">
+          <button
+            type="button"
+            onClick={handleSubmit((data) => onSubmit(data, false))}
+            disabled={isSubmitting}
+            className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-semibold shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer focus:outline-none focus:ring-4 focus:ring-slate-100"
+          >
+            <Save className="w-4 h-4" />
+            <span>Save</span>
+          </button>
+          
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex-1 py-3.5 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white rounded-2xl font-semibold shadow-lg shadow-purple-100 flex items-center justify-center gap-2 transition-all cursor-pointer group focus:outline-none focus:ring-4 focus:ring-purple-100"
+          >
+            <span>Next</span>
+            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+          </button>
+        </div>
       </form>
     </div>
   );
