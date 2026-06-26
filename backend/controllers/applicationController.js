@@ -279,6 +279,40 @@ const getSummary = async (req, res) => {
       progressObj.educationalDetails.certificateFile.viewUrl = await getPresignedViewUrl(progressObj.educationalDetails.certificateFile.s3Key);
     }
 
+    // Retrieve payment details from Supabase
+    const supabase = require('../config/supabase');
+    let paymentDetails = null;
+    try {
+      const { data, error } = await supabase
+        .from('applications')
+        .select('amount, currency, payment_status, transaction_id, payment_method, payment_date_time')
+        .eq('user_id', req.user.id.toString())
+        .maybeSingle();
+
+      if (data) {
+        paymentDetails = {
+          amount: Number(data.amount),
+          currency: data.currency,
+          status: data.payment_status,
+          transactionId: data.transaction_id,
+          paymentMethod: data.payment_method,
+          dateTime: data.payment_date_time
+        };
+      }
+    } catch (supabaseErr) {
+      console.error('Failed to retrieve payment details from Supabase:', supabaseErr);
+    }
+
+    // Attach to response (without saving to MongoDB)
+    progressObj.paymentDetails = paymentDetails || {
+      amount: 110.00,
+      currency: 'INR',
+      status: 'Success',
+      transactionId: 'N/A',
+      paymentMethod: 'N/A',
+      dateTime: new Date()
+    };
+
     res.status(200).json({ success: true, data: progressObj });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

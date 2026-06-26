@@ -39,8 +39,17 @@ router.post('/success', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Application session not found' });
     }
 
-    // Set payment details
-    progress.paymentDetails = {
+    // Set stage details only
+    progress.isComplete = true;
+    progress.currentStage = 4;
+    
+    // Explicitly clear payment details from MongoDB if any exists
+    progress.paymentDetails = undefined;
+
+    await progress.save();
+
+    // Prepare payment details for Supabase
+    const paymentDetails = {
       amount: 110.00,
       currency: 'INR',
       status: 'Success',
@@ -48,12 +57,6 @@ router.post('/success', protect, async (req, res) => {
       paymentMethod: paymentMethod || 'Google Pay',
       dateTime: new Date()
     };
-
-    // Mark application as fully complete
-    progress.isComplete = true;
-    progress.currentStage = 4;
-
-    await progress.save();
 
     // Store complete details in Supabase
     try {
@@ -80,12 +83,12 @@ router.post('/success', protect, async (req, res) => {
             grade: progress.educationalDetails?.grade || '',
             certificate_filename: progress.educationalDetails?.certificateFile?.filename || '',
             certificate_path: progress.educationalDetails?.certificateFile?.path || '',
-            amount: progress.paymentDetails.amount,
-            currency: progress.paymentDetails.currency,
-            payment_status: progress.paymentDetails.status,
-            transaction_id: progress.paymentDetails.transactionId,
-            payment_method: progress.paymentDetails.paymentMethod,
-            payment_date_time: progress.paymentDetails.dateTime
+            amount: paymentDetails.amount,
+            currency: paymentDetails.currency,
+            payment_status: paymentDetails.status,
+            transaction_id: paymentDetails.transactionId,
+            payment_method: paymentDetails.paymentMethod,
+            payment_date_time: paymentDetails.dateTime
           }
         ])
         .select();
@@ -114,26 +117,18 @@ router.post('/success', protect, async (req, res) => {
 // @access  Private
 router.post('/failure', protect, async (req, res) => {
   try {
-    const { paymentMethod, transactionId } = req.body;
     const progress = await FormProgress.findOne({ userId: req.user.id });
 
     if (!progress) {
       return res.status(400).json({ success: false, message: 'Application session not found' });
     }
 
-    // Set payment details
-    progress.paymentDetails = {
-      amount: 110.00,
-      currency: 'INR',
-      status: 'Failed',
-      transactionId: transactionId || 'FAIL-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
-      paymentMethod: paymentMethod || 'Google Pay',
-      dateTime: new Date()
-    };
-
     // Ensure application is not complete and remains in stage 3
     progress.isComplete = false;
     progress.currentStage = 3;
+    
+    // Explicitly clear payment details from MongoDB if any exists
+    progress.paymentDetails = undefined;
 
     await progress.save();
 
