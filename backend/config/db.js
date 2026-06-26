@@ -3,7 +3,7 @@ require("dotenv").config();
 
 const connectDB = async () => {
     try {
-        await mongoose.connect(process.env.MONGO_URI || process.env.MONGOURI || process.env.MONGODB_URI);
+        await mongoose.connect(process.env.MONGO_URI || process.env.MONGOURI || process.env.MONGODB_URI || process.env.MONGO_URL);
         console.log("MongoDB Connected successfully");
 
         // Programmatically clean up legacy username_1 index if it exists
